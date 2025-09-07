@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Nokia 3310 – Yılan (Snake)</title>
+  <style>
+    :root {
+      --lcd: #a6c26b;           /* 3310 yeşili */
+      --lcd-dark: #6f8350;
+      --ink: #143109;           /* koyu pixel rengi */
+      --bezel: #1e1f22;         /* telefon kasası */
+      --key: #2a2b2f;           /* tuşlar */
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      display: grid;
+      place-items: center;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      background: radial-gradient(circle at 30% 20%, #2b2f36, #0f1115 60%);
+      color: white;
+    }
+
+    .phone {
+      width: min(92vw, 420px);
+      aspect-ratio: 9/18;
+      background: linear-gradient(135deg, #2b2e33, #1a1c20);
+      border: 10px solid #0a0b0d;
+      border-radius: 42px;
+      box-shadow: 0 30px 100px rgba(0,0,0,.5), inset 0 6px 16px rgba(255,255,255,.05);
+      padding: 18px 18px 22px;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 12px;
+    }
+
+    .ear {
+      height: 10px;
+      width: 40%;
+      margin: 0 auto;
+      border-radius: 8px;
+      background: #0b0c0e;
+      box-shadow: inset 0 -2px 0 rgba(255,255,255,.05);
+    }
+
+    .screen-wrap {
+      border-radius: 18px;
+      background: linear-gradient(#2a2d30, #181a1e);
+      padding: 10px;
+      box-shadow: inset 0 2px 0 rgba(255,255,255,.06);
+    }
+
+    .statusbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: #cde6a2;
+      font-size: 12px;
+      margin-bottom: 8px;
+      letter-spacing: .5px;
+    }
+
+    .lcd {
+      position: relative;
+      border-radius: 10px;
+      background: repeating-linear-gradient(0deg, var(--lcd) 0 2px, #a0bd67 2px 3px);
+      height: min(58vw, 240px);
+      image-rendering: pixelated;
+      box-shadow: inset 0 -3px 0 rgba(0,0,0,.12), inset 0 3px 0 rgba(255,255,255,.06);
+      border: 2px solid #0e0f12;
+      display: grid;
+      place-items: center;
+    }
+
+    canvas {
+      image-rendering: pixelated;
+      border: 1px solid rgba(20,49,9,.2);
+      background: var(--lcd);
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 10px;
+      align-items: center;
+      padding-top: 8px;
+    }
+
+    .btn {
+      background: linear-gradient(#2f3136, #1f2126);
+      border: 1px solid #0a0c10;
+      color: #cbd5e1;
+      padding: 10px 14px;
+      border-radius: 999px;
+      cursor: pointer;
+      user-select: none;
+      font-weight: 600;
+      letter-spacing: .4px;
+      box-shadow: 0 6px 16px rgba(0,0,0,.4), inset 0 0 0 1px rgba(255,255,255,.05);
+      transition: transform .04s ease, filter .12s ease;
+    }
+    .btn:active { transform: translateY(1px) scale(.99); filter: brightness(.95); }
+
+    .dpad {
+      display: grid;
+      grid-template-areas:
+        ". up ."
+        "left center right"
+        ". down .";
+      gap: 6px;
+      justify-items: center;
+      align-items: center;
+      margin-top: 8px;
+    }
+    .dpad button {
+      width: 54px; height: 36px;
+      border-radius: 10px;
+      background: linear-gradient(#2d3035, #1a1c20);
+      border: 1px solid #0a0c10;
+      color: #cde6a2;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .dpad .up    { grid-area: up; }
+    .dpad .down  { grid-area: down; }
+    .dpad .left  { grid-area: left; }
+    .dpad .right { grid-area: right; }
+    .dpad .center{ grid-area: center; opacity:.6; }
+
+    .hint {
+      color: #9fb88b;
+      font-size: 12px;
+      text-align: center;
+      margin-top: 6px;
+    }
+
+    .metrics { display:flex; gap:10px; }
+    .badge {
+      background: #16200d;
+      border: 1px solid #0d1407;
+      color: #cde6a2;
+      font-size: 12px;
+      padding: 4px 8px;
+      border-radius: 999px;
+    }
+  </style>
+</head>
+<body>
+  <div class="phone" role="application" aria-label="Nokia 3310 – Yılan oyunu">
+    <div class="ear"></div>
+
+    <div class="screen-wrap">
+      <div class="statusbar">
+        <div>🐍 Yılan</div>
+        <div class="metrics">
+          <span class="badge">Skor: <strong id="score">0</strong></span>
+          <span class="badge">Rekor: <strong id="hiscore">0</strong></span>
+        </div>
+      </div>
+      <div class="lcd">
+        <canvas id="game" width="168" height="96" aria-label="Oyun ekranı" tabindex="0"></canvas>
+      </div>
+      <div class="hint">Yön tuşları / WASD · Başlat/Duraklat: Boşluk · Yeniden: R</div>
+    </div>
+
+    <div class="controls">
+      <button class="btn" id="start">Başlat / Duraklat</button>
+      <button class="btn" id="reset">Yeniden</button>
+      <div style="justify-self:end; font-size:12px; color:#9fb88b;">Hız: <span id="speedLabel">1</span>x</div>
+    </div>
+
+    <div class="dpad" aria-label="Dokunmatik yön tuşları">
+      <button class="up">▲</button>
+      <button class="left">◀</button>
+      <button class="center" disabled>●</button>
+      <button class="right">▶</button>
+      <button class="down">▼</button>
+    </div>
+  </div>
+
+<script>
+(function(){
+  // === EKRAN & GRID ===
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const CELL = 6;               // piksel başına hücre boyutu
+  const COLS = canvas.width  / CELL; // 168/6 = 28
+  const ROWS = canvas.height / CELL; // 96/6  = 16
+
+  // === OYUN DURUMU ===
+  const DIRS = { ArrowUp:[0,-1], ArrowDown:[0,1], ArrowLeft:[-1,0], ArrowRight:[1,0],
+                 KeyW:[0,-1], KeyS:[0,1], KeyA:[-1,0], KeyD:[1,0] };
+  let snake, dir, nextDir, food, score, hiscore, tickMs, timer, running, speedLevel;
+
+  // === SES (3310 bipleri) ===
+  const Audio = window.AudioContext || window.webkitAudioContext;
+  const audio = Audio ? new Audio() : null;
+  function beep(freq=900, dur=0.05, type='square', vol=0.03) {
+    if(!audio) return;
+    try {
+      const t = audio.currentTime;
+      const o = audio.createOscillator();
+      const g = audio.createGain();
+      o.type = type; o.frequency.value = freq;
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(vol, t + 0.005);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g); g.connect(audio.destination); o.start(); o.stop(t + dur);
+    } catch(e) {}
+  }
+
+  // === YARDIMCILAR ===
+  function randCell() {
+    return [ (Math.random()*COLS)|0, (Math.random()*ROWS)|0 ];
+  }
+  function eq(a,b){ return a[0]===b[0] && a[1]===b[1]; }
+  function out(x,y){ return x<0||y<0||x>=COLS||y>=ROWS; }
+
+  function reset(initSpeed=1){
+    snake = [ [Math.floor(COLS/2), Math.floor(ROWS/2)] ];
+    dir = [1,0]; nextDir = dir.slice();
+    food = randCell();
+    score = 0; document.getElementById('score').textContent = score;
+    hiscore = Number(localStorage.getItem('hiscore_snake3310')||0);
+    document.getElementById('hiscore').textContent = hiscore;
+    speedLevel = initSpeed; updateSpeed();
+    running = false; stop(); draw();
+  }
+
+  function updateSpeed(){
+    // Temel hız 120ms, her seviye ~%12 hızlanır
+    tickMs = Math.max(50, Math.round(120 / Math.pow(1.12, Math.max(0, speedLevel-1))));
+    document.getElementById('speedLabel').textContent = speedLevel;
+    if(running){ startLoop(); }
+  }
+
+  function startLoop(){ stop(); timer = setInterval(step, tickMs); }
+  function stop(){ if(timer){ clearInterval(timer); timer=null; } }
+
+  function spawnFood(){
+    do { food = randCell(); }
+    while (snake.some(s => eq(s, food)));
+  }
+
+  // === ÇİZİM ===
+  function px(x){ return x*CELL; }
+  function drawCell(x,y,shade=0){
+    // LCD benzeri koyu/ışık pikseller
+    const base = '#143109';
+    ctx.fillStyle = shade? '#0e2507' : base;
+    ctx.fillRect(px(x), px(y), CELL, CELL);
+  }
+  function draw(){
+    // arka plan
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--lcd');
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    // grid hafif dokusu (opsiyonel, nostalji hissi)
+    ctx.globalAlpha = .05;
+    ctx.strokeStyle = '#143109';
+    for(let x=0;x<=COLS;x++) { ctx.beginPath(); ctx.moveTo(px(x),0); ctx.lineTo(px(x),canvas.height); ctx.stroke(); }
+    for(let y=0;y<=ROWS;y++) { ctx.beginPath(); ctx.moveTo(0,px(y)); ctx.lineTo(canvas.width,px(y)); ctx.stroke(); }
+    ctx.globalAlpha = 1;
+
+    // yiyecek
+    ctx.fillStyle = '#0b2405';
+    ctx.fillRect(px(food[0]), px(food[1]), CELL, CELL);
+    ctx.fillStyle = '#061703';
+    ctx.fillRect(px(food[0])+1, px(food[1])+1, CELL-2, CELL-2);
+
+    // yılan
+    for(let i=0;i<snake.length;i++){
+      const s = snake[i];
+      drawCell(s[0], s[1], i===0?1:0);
+    }
+  }
+
+  // === OYUN ADIMI ===
+  function step(){
+    dir = nextDir; // tek dönüş / tick
+    const head = snake[0];
+    const nx = head[0] + dir[0];
+    const ny = head[1] + dir[1];
+
+    // duvara çarpma
+    if(out(nx,ny)) return gameOver();
+
+    // kendini yeme
+    for(let i=0;i<snake.length;i++){ if(eq(snake[i],[nx,ny])) return gameOver(); }
+
+    // ilerle
+    snake.unshift([nx,ny]);
+
+    // yemek?
+    if(eq([nx,ny], food)){
+      score++; document.getElementById('score').textContent = score;
+      if(score>hiscore){ hiscore=score; localStorage.setItem('hiscore_snake3310', hiscore); document.getElementById('hiscore').textContent = hiscore; }
+      beep(1200, .06, 'square', .04);
+      if(score % 5 === 0){ speedLevel++; updateSpeed(); }
+      spawnFood();
+    } else {
+      snake.pop();
+    }
+
+    draw();
+  }
+
+  function gameOver(){
+    stop(); running=false;
+    // kısa "ölüm" melodisi
+    beep(300,.08,'square',.05); setTimeout(()=>beep(220,.12,'square',.05), 80);
+
+    // yanıp sönme efekti
+    let flashes=0; const blink = setInterval(()=>{
+      ctx.globalAlpha = (flashes%2)? 1 : .15;
+      draw();
+      flashes++;
+      if(flashes>6){ clearInterval(blink); ctx.globalAlpha=1; draw(); }
+    }, 90);
+  }
+
+  // === GİRİŞ ===
+  function setDir(dx,dy){
+    // geri dönmeyi engelle (anlık 180° yasak)
+    if(dx===-dir[0] && dy===-dir[1]) return;
+    nextDir=[dx,dy];
+  }
+
+  document.addEventListener('keydown', (e)=>{
+    if(e.code in DIRS){ e.preventDefault(); const [dx,dy]=DIRS[e.code]; setDir(dx,dy); if(!running) startPause(); }
+    else if(e.code==='Space'){ e.preventDefault(); startPause(); }
+    else if(e.code==='KeyR'){ e.preventDefault(); reset(speedLevel); }
+    else if(e.code==='BracketRight'){ speedLevel++; updateSpeed(); }
+    else if(e.code==='BracketLeft'){ speedLevel=Math.max(1, speedLevel-1); updateSpeed(); }
+  });
+
+  // Dokunmatik D-Pad
+  const dpad = {
+    up: document.querySelector('.dpad .up'),
+    down: document.querySelector('.dpad .down'),
+    left: document.querySelector('.dpad .left'),
+    right: document.querySelector('.dpad .right')
+  };
+  dpad.up.addEventListener('click',()=>setDir(0,-1));
+  dpad.down.addEventListener('click',()=>setDir(0,1));
+  dpad.left.addEventListener('click',()=>setDir(-1,0));
+  dpad.right.addEventListener('click',()=>setDir(1,0));
+
+  // Butonlar
+  document.getElementById('start').onclick = startPause;
+  document.getElementById('reset').onclick = ()=>reset(1);
+
+  function startPause(){
+    if(!running){ running=true; if(audio && audio.state==='suspended'){ audio.resume(); } startLoop(); }
+    else { running=false; stop(); }
+  }
+
+  // === BAŞLAT ===
+  reset(1);
+  draw();
+})();
+</script>
+</body>
+</html>
